@@ -1,0 +1,34 @@
+{
+  "name": "external-ingester-consumer-infrastructure",
+  "version": "1.0.0",
+  "description": "AWS CDK infrastructure for external data ingester and consumer lambdas",
+  "bin": {
+    "infrastructure": "bin/app.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "deploy": "cdk deploy --all --profile ans-super --require-approval never",
+    "destroy": "cdk destroy --all --profile ans-super"
+  },
+  "keywords": [
+    "cdk",
+    "lambda",
+    "dynamodb",
+    "s3",
+    "api-gateway"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "aws-cdk": "^2.118.2",
+    "typescript": "~5.3.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.118.2",
+    "constructs": "^10.3.0",
+    "source-map-support": "^0.5.21"
+  }
+}
