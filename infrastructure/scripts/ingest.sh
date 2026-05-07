@@ -9,6 +9,7 @@
 # Notes:
 # - partitionKey refers to the column name in the CSV (e.g., "doc")
 # - sortKey is a fixed value that will be used as the sort key
+# - For custom delimiters (semicolon, tab, pipe), use direct AWS CLI invocation
 
 set -e
 
@@ -23,6 +24,8 @@ if [ "$#" -lt 3 ]; then
     echo ""
     echo "Example:"
     echo "  $0 dev fedecafetero.csv doc fedecafetero"
+    echo ""
+    echo "Note: For custom delimiters (;, \\t, |), use direct AWS CLI invocation"
     exit 1
 fi
 

@@ -110,10 +110,37 @@ def validate_config(config: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+def detect_delimiter(sample_line: str) -> str:
+    """
+    Auto-detect delimiter from a sample line.
+    Tests common delimiters: comma, semicolon, tab, pipe
+    """
+    delimiters = [',', ';', '\t', '|']
+    delimiter_counts = {}
+
+    for delim in delimiters:
+        count = sample_line.count(delim)
+        if count > 0:
+            delimiter_counts[delim] = count
+
+    if not delimiter_counts:
+        # Default to comma if no delimiter found
+        return ','
+
+    # Return delimiter with highest count
+    detected = max(delimiter_counts, key=delimiter_counts.get)
+    print(f'Auto-detected delimiter: "{detected}" (found {delimiter_counts[detected]} occurrences)')
+    return detected
+
+
 def stream_process_file(config: Dict[str, Any], bucket: str) -> Dict[str, Any]:
     """
     Stream-based file processor for large CSV/TXT files.
     Constant memory usage regardless of file size.
+
+    Auto-detects:
+    - Delimiter (comma, semicolon, tab, pipe)
+    - File format (CSV with headers or TXT)
     """
     file_key = config['file']
     table_name = config['table']
@@ -139,16 +166,34 @@ def stream_process_file(config: Dict[str, Any], bucket: str) -> Dict[str, Any]:
         # Wrap streaming body in text wrapper for line-by-line reading
         stream = io.TextIOWrapper(response['Body'], encoding='utf-8', newline='')
 
-        # CSV reader processes line-by-line (generator pattern)
-        reader = csv.DictReader(stream)
+        # Read first line to detect delimiter
+        first_line = stream.readline()
+        if not first_line:
+            raise ValueError('File is empty')
 
-        # Validate partition key exists in CSV headers
-        if partition_key_name not in reader.fieldnames:
-            raise ValueError(f'Partition key column "{partition_key_name}" not found in CSV. Available columns: {reader.fieldnames}')
+        # Detect delimiter from first line
+        delimiter = detect_delimiter(first_line)
+
+        # Reset stream to beginning
+        stream.seek(0)
+
+        # Create CSV reader with detected delimiter
+        print(f'Processing file with delimiter: "{delimiter}"')
+        reader = csv.DictReader(stream, delimiter=delimiter)
+        fieldnames = reader.fieldnames
+
+        if not fieldnames:
+            raise ValueError('Could not detect column headers in file')
+
+        print(f'Detected columns: {fieldnames}')
+
+        # Validate partition key exists in headers
+        if partition_key_name not in fieldnames:
+            raise ValueError(f'Partition key column "{partition_key_name}" not found. Available columns: {fieldnames}')
 
         # Validate sort key exists if specified
-        if sort_key_name and sort_key_name not in reader.fieldnames:
-            raise ValueError(f'Sort key column "{sort_key_name}" not found in CSV. Available columns: {reader.fieldnames}')
+        if sort_key_name and sort_key_name not in fieldnames:
+            raise ValueError(f'Sort key column "{sort_key_name}" not found. Available columns: {fieldnames}')
 
         # Accumulators
         batch = []
@@ -156,7 +201,7 @@ def stream_process_file(config: Dict[str, Any], bucket: str) -> Dict[str, Any]:
         success_count = 0
         row_index = 0
 
-        print(f'Processing CSV with columns: {reader.fieldnames}')
+        print(f'Processing file with columns: {fieldnames}')
 
         for row in reader:
             row_index += 1
@@ -221,7 +266,7 @@ def stream_process_file(config: Dict[str, Any], bucket: str) -> Dict[str, Any]:
         # Write error file if errors occurred
         if error_records:
             print(f'Writing error file with {len(error_records)} failed records')
-            write_error_csv(bucket, file_key, error_records, reader.fieldnames)
+            write_error_csv(bucket, file_key, error_records, fieldnames)
 
         # Rename original file with .ingested suffix
         rename_file(bucket, file_key)
