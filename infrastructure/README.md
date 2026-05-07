@@ -62,38 +62,109 @@ After deployment, note these outputs:
 - **IngesterFunctionName**: processapp-ingester-dev
 - **TableName**: dev-ExternalData
 
+## Authorized Users
+
+The following IAM users have permissions to invoke the ingester Lambda:
+- **qohat.prettel**
+- **david.jimenez**
+- **soportejoven@answering.com.co**
+
+These users can run the ingestion process without needing admin access.
+
 ## Usage
 
 ### 1. Upload CSV to S3
 
 ```bash
-aws s3 cp your-file.csv s3://dev-answering-procesapp-info/ --profile ans-super
+# With your AWS profile
+aws s3 cp your-file.csv s3://dev-answering-procesapp-info/ --profile YOUR_PROFILE
+
+# Or with default profile
+aws s3 cp your-file.csv s3://dev-answering-procesapp-info/
 ```
 
 ### 2. Ingest File
 
-Use the helper script:
+#### Option A: Using Helper Script (Recommended)
 
 ```bash
 # Format: ./scripts/ingest.sh <stage> <file> <partitionKey> [sortKey]
 ./scripts/ingest.sh dev fedecafetero.csv "doc" "fedecafetero"
 ```
 
+The script automatically:
+- Uses your default AWS credentials
+- Capitalizes the stage name for the table (dev → Dev-ExternalData)
+- Formats the payload correctly
+- Shows CloudWatch logs command
+
+#### Option B: Direct AWS CLI Invocation
+
+```bash
+aws lambda invoke \
+  --function-name processapp-ingester-dev \
+  --payload '{"config": [{"table": "Dev-ExternalData", "partitionKey": "doc", "sortKey": "fedecafetero", "file": "fedecafetero.csv", "ignore": false}]}' \
+  --cli-binary-format raw-in-base64-out \
+  response.json
+
+# View response
+cat response.json | jq .
+```
+
+### Understanding partitionKey and sortKey
+
 **Important Notes:**
 - `partitionKey` refers to the **column name** in the CSV (e.g., "doc", "documento")
-- The value in that column becomes the partition key in DynamoDB
-- `sortKey` is a **fixed value** used for the sort key (or omit to use row index)
+- The **value** in that column becomes the partition key in DynamoDB
+- `sortKey` can be:
+  - A **column name** (will use the value from that column)
+  - A **fixed value** (same for all records)
+  - Omitted (will use row index)
 
-Example CSV:
+#### Example 1: Column-based keys
+
+CSV file `fedecafetero.csv`:
 ```csv
 doc,name,value
 12345,John Doe,100
 67890,Jane Smith,200
 ```
 
-With command: `./scripts/ingest.sh dev data.csv "doc" "fedecafetero"`
-- DynamoDB record 1: partitionKey="12345", sortKey="fedecafetero"
-- DynamoDB record 2: partitionKey="67890", sortKey="fedecafetero"
+Command:
+```bash
+./scripts/ingest.sh dev fedecafetero.csv "doc" "fedecafetero"
+```
+
+Result in DynamoDB:
+- Record 1: `partitionKey="12345"`, `sortKey="fedecafetero"`, `data_doc="12345"`, `data_name="John Doe"`, `data_value="100"`
+- Record 2: `partitionKey="67890"`, `sortKey="fedecafetero"`, `data_doc="67890"`, `data_name="Jane Smith"`, `data_value="200"`
+
+#### Example 2: Multiple files, same partition column
+
+```bash
+# File 1: fedecafetero.csv
+./scripts/ingest.sh dev fedecafetero.csv "doc" "fedecafetero"
+
+# File 2: fedeaarroz.csv (same partition key column)
+./scripts/ingest.sh dev fedeaarroz.csv "doc" "fedeaarroz"
+```
+
+Now you can query by partition key and different sort keys:
+```bash
+curl https://API_URL/external/12345/fedecafetero
+curl https://API_URL/external/12345/fedeaarroz
+```
+
+#### Example 3: Using row index as sortKey
+
+```bash
+# Omit sortKey parameter to use row numbers
+./scripts/ingest.sh dev data.csv "documento"
+```
+
+Result:
+- Record 1: `partitionKey="value_from_documento_column"`, `sortKey="1"`
+- Record 2: `partitionKey="value_from_documento_column"`, `sortKey="2"`
 
 ### 3. Query via API
 
@@ -105,14 +176,45 @@ With command: `./scripts/ingest.sh dev data.csv "doc" "fedecafetero"`
 curl -X GET "https://API_ID.execute-api.us-east-1.amazonaws.com/dev/external/12345/fedecafetero"
 ```
 
-### 4. Check Logs
+### 4. Monitor Processing
+
+#### Check Lambda Response
+
+After invoking, check `response.json`:
+```bash
+cat response.json | jq .
+```
+
+Successful response:
+```json
+{
+  "statusCode": 200,
+  "body": "{\"message\":\"Ingestion completed\",\"results\":[{\"file\":\"fedecafetero.csv\",\"success_count\":150,\"error_count\":0,\"status\":\"completed\"}]}"
+}
+```
+
+#### Check CloudWatch Logs
 
 ```bash
-# Ingester logs
-aws logs tail /aws/lambda/processapp-ingester-dev --follow --profile ans-super
+# Ingester logs (real-time)
+aws logs tail /aws/lambda/processapp-ingester-dev --follow
+
+# Ingester logs (last 10 minutes)
+aws logs tail /aws/lambda/processapp-ingester-dev --since 10m
 
 # Consumer logs
-aws logs tail /aws/lambda/processapp-consumer-dev --follow --profile ans-super
+aws logs tail /aws/lambda/processapp-consumer-dev --follow
+```
+
+#### Check S3 for Processed Files
+
+```bash
+# List files in S3
+aws s3 ls s3://dev-answering-procesapp-info/
+
+# Should see:
+# fedecafetero.csv.ingested (original file renamed)
+# fedecafetero.csv.failed.txt (only if errors occurred)
 ```
 
 ## Configuration
@@ -142,11 +244,113 @@ Successfully processed files are renamed with `.ingested` suffix:
 
 This prevents duplicate processing.
 
-## Testing
+## Complete Example Workflows
 
-### Generate Test CSV
+### Example 1: Basic Ingestion and Query
 
 ```bash
+# 1. Create a test CSV file
+cat > sample-data.csv << EOF
+doc,name,email,phone
+CC12345,Juan Perez,juan@example.com,3001234567
+CC67890,Maria Lopez,maria@example.com,3009876543
+CC11111,Carlos Ruiz,carlos@example.com,3005555555
+EOF
+
+# 2. Upload to S3
+aws s3 cp sample-data.csv s3://dev-answering-procesapp-info/
+
+# 3. Ingest the file
+cd infrastructure
+./scripts/ingest.sh dev sample-data.csv "doc" "personas-2024"
+
+# 4. Wait for processing (check response.json)
+cat response.json | jq .
+
+# 5. Query a record
+./scripts/query.sh dev "CC12345" "personas-2024"
+
+# Expected response:
+# {
+#   "data": {
+#     "partitionKey": "CC12345",
+#     "sortKey": "personas-2024",
+#     "createdAt": "2024-12-31T12:00:00.000Z",
+#     "sourceFile": "sample-data.csv",
+#     "rowIndex": 1,
+#     "status": "active",
+#     "data_doc": "CC12345",
+#     "data_name": "Juan Perez",
+#     "data_email": "juan@example.com",
+#     "data_phone": "3001234567"
+#   },
+#   "status": "success"
+# }
+```
+
+### Example 2: Multiple Files from Different Sources
+
+```bash
+# Fedecafetero data
+cat > fedecafetero.csv << EOF
+cedula,nombre,ciudad,estado
+1234567890,Pedro Garcia,Bogota,Activo
+9876543210,Ana Martinez,Medellin,Activo
+EOF
+
+aws s3 cp fedecafetero.csv s3://dev-answering-procesapp-info/
+./scripts/ingest.sh dev fedecafetero.csv "cedula" "fedecafetero"
+
+# Fedeaarroz data (same partition key column, different sortKey)
+cat > fedeaarroz.csv << EOF
+cedula,nombre,ciudad,producto
+1234567890,Pedro Garcia,Cali,Arroz Premium
+5555555555,Luis Gomez,Barranquilla,Arroz Integral
+EOF
+
+aws s3 cp fedeaarroz.csv s3://dev-answering-procesapp-info/
+./scripts/ingest.sh dev fedeaarroz.csv "cedula" "fedeaarroz"
+
+# Now you can query the same person from different sources
+./scripts/query.sh dev "1234567890" "fedecafetero"
+./scripts/query.sh dev "1234567890" "fedeaarroz"
+```
+
+### Example 3: Error Handling
+
+```bash
+# Create a CSV with intentional errors (missing partition key)
+cat > bad-data.csv << EOF
+doc,name,value
+,Missing Doc,100
+CC22222,Valid Record,200
+,Another Missing,300
+EOF
+
+aws s3 cp bad-data.csv s3://dev-answering-procesapp-info/
+./scripts/ingest.sh dev bad-data.csv "doc" "test-errors"
+
+# Check the response - should show errors
+cat response.json | jq .
+# Output: {"success_count": 1, "error_count": 2, ...}
+
+# Check the failed records file
+aws s3 cp s3://dev-answering-procesapp-info/bad-data.csv.failed.txt - | cat
+# Output:
+# doc,name,value,error_reason
+# ,Missing Doc,100,Missing or empty partition key: doc
+# ,Another Missing,300,Missing or empty partition key: doc
+
+# The valid record was still inserted
+./scripts/query.sh dev "CC22222" "test-errors"
+```
+
+## Testing
+
+### Quick Test (Small File)
+
+```bash
+# Generate 100 records
 python -c "
 import csv
 with open('test.csv', 'w', newline='') as f:
@@ -156,7 +360,7 @@ with open('test.csv', 'w', newline='') as f:
         writer.writerow([f'doc-{i}', f'Name {i}', i * 10])
 "
 
-aws s3 cp test.csv s3://dev-answering-procesapp-info/ --profile ans-super
+aws s3 cp test.csv s3://dev-answering-procesapp-info/
 ./scripts/ingest.sh dev test.csv "doc" "test-run"
 ./scripts/query.sh dev "doc-0" "test-run"
 ```
@@ -217,26 +421,145 @@ cdk destroy dev-PrereqsStack --profile ans-super
 
 ## Troubleshooting
 
-### Lambda timeout on large files
+### Issue: "AccessDenied" when invoking Lambda
 
-- Increase `timeoutSeconds` in `config/environments.ts`
+**Symptom:**
+```bash
+An error occurred (AccessDeniedException) when calling the Invoke operation: 
+User: arn:aws:iam::708819485463:user/username is not authorized to perform: lambda:InvokeFunction
+```
+
+**Solution:**
+Your IAM user must be one of the authorized users:
+- qohat.prettel
+- david.jimenez
+- soportejoven@answering.com.co
+
+Contact the admin if you need access.
+
+### Issue: Lambda timeout on large files
+
+**Symptom:** Lambda times out after 15 minutes
+
+**Solution:**
 - Current limit: 900 seconds (15 minutes)
+- Files over 5GB may need to be split
+- For very large files, increase timeout in `config/environments.ts` and redeploy
 
-### DynamoDB throttling
+### Issue: "Column not found" error
 
-- Current billing mode: PAY_PER_REQUEST (no throttling)
-- If switching to PROVISIONED, adjust capacity units
+**Symptom:**
+```json
+{
+  "statusCode": 500,
+  "body": "{\"error\":\"Partition key column 'doc' not found in CSV. Available columns: ['documento', 'name', 'value']\"}"
+}
+```
 
-### CSV parsing errors
+**Solution:**
+Check your CSV headers match the `partitionKey` parameter:
+```bash
+# If your CSV has "documento" not "doc"
+./scripts/ingest.sh dev file.csv "documento" "sortkey"
+```
 
-- Ensure CSV has header row
-- Check column names match `partitionKey`/`sortKey` config
-- Verify UTF-8 encoding
+### Issue: DynamoDB throttling
 
-### API Gateway 403 errors
+**Current Status:** PAY_PER_REQUEST mode = no throttling
 
-- Check CORS configuration in ConsumerStack
-- Verify API Gateway deployment stage
+If you see throttling errors:
+- Check AWS Service Health Dashboard
+- Review DynamoDB CloudWatch metrics
+- Consider increasing Lambda retry configuration
+
+### Issue: CSV parsing errors
+
+**Common causes:**
+1. **No header row**: CSV must have a header row with column names
+2. **Wrong encoding**: File must be UTF-8 encoded
+3. **Malformed CSV**: Extra commas, unescaped quotes
+
+**Example fix:**
+```bash
+# Check file encoding
+file -I yourfile.csv
+
+# Convert to UTF-8 if needed
+iconv -f ISO-8859-1 -t UTF-8 yourfile.csv > yourfile-utf8.csv
+```
+
+### Issue: API Gateway 403/404 errors
+
+**403 Forbidden:**
+- Check CORS configuration (currently enabled for all origins)
+- Verify API Gateway deployment
+
+**404 Not Found:**
+- Verify record exists: `aws dynamodb get-item --table-name Dev-ExternalData --key '{"partitionKey":{"S":"YOUR_KEY"},"sortKey":{"S":"YOUR_SORT"}}'`
+- Check partitionKey and sortKey values match exactly
+
+### Issue: File not renamed to .ingested
+
+**Symptom:** Original file still exists, no .ingested file
+
+**Possible causes:**
+1. Lambda doesn't have S3 permissions (check IAM role)
+2. File processing failed (check CloudWatch logs)
+3. S3 versioning is enabled (check bucket configuration)
+
+**Debug:**
+```bash
+# Check S3 permissions
+aws s3 ls s3://dev-answering-procesapp-info/
+
+# Check Lambda logs
+aws logs tail /aws/lambda/processapp-ingester-dev --since 30m
+```
+
+### Issue: Failed records file not created
+
+**Symptom:** No .failed.txt file despite errors
+
+**Causes:**
+- All records succeeded (check response.json: `error_count: 0`)
+- Lambda doesn't have S3 write permissions
+- Processing crashed before error file creation
+
+**Verify:**
+```bash
+# Check response
+cat response.json | jq '.body | fromjson | .results[0]'
+
+# Should show:
+# {
+#   "file": "yourfile.csv",
+#   "success_count": 100,
+#   "error_count": 5,  # <-- If > 0, .failed.txt should exist
+#   "status": "completed"
+# }
+```
+
+### Getting Help
+
+1. **Check CloudWatch Logs** (most informative):
+   ```bash
+   aws logs tail /aws/lambda/processapp-ingester-dev --since 1h
+   ```
+
+2. **Check S3 for files**:
+   ```bash
+   aws s3 ls s3://dev-answering-procesapp-info/ --recursive
+   ```
+
+3. **Verify DynamoDB table**:
+   ```bash
+   aws dynamodb describe-table --table-name Dev-ExternalData
+   ```
+
+4. **Test API endpoint**:
+   ```bash
+   curl -v https://gvhyyvhmhj.execute-api.us-east-1.amazonaws.com/dev/external/test/test
+   ```
 
 ## Project Structure
 
@@ -263,10 +586,94 @@ infrastructure/
     └── query.sh            # Helper script for API queries
 ```
 
+## Quick Reference
+
+### Ingestion Command Templates
+
+```bash
+# Standard ingestion
+./scripts/ingest.sh dev <FILE.csv> "<PARTITION_KEY_COLUMN>" "<SORT_KEY_VALUE>"
+
+# Using row index as sort key
+./scripts/ingest.sh dev <FILE.csv> "<PARTITION_KEY_COLUMN>"
+
+# Direct AWS CLI (if you prefer)
+aws lambda invoke \
+  --function-name processapp-ingester-dev \
+  --payload '{"config":[{"table":"Dev-ExternalData","partitionKey":"COLUMN_NAME","sortKey":"FIXED_VALUE","file":"FILE.csv","ignore":false}]}' \
+  --cli-binary-format raw-in-base64-out \
+  response.json
+```
+
+### Query Command Templates
+
+```bash
+# Using helper script
+./scripts/query.sh dev "<PARTITION_KEY>" "<SORT_KEY>"
+
+# Direct curl
+curl -X GET "https://gvhyyvhmhj.execute-api.us-east-1.amazonaws.com/dev/external/<PARTITION_KEY>/<SORT_KEY>"
+```
+
+### Useful AWS Commands
+
+```bash
+# List files in S3
+aws s3 ls s3://dev-answering-procesapp-info/
+
+# Download a file from S3
+aws s3 cp s3://dev-answering-procesapp-info/file.csv ./
+
+# View Lambda logs (last 30 minutes)
+aws logs tail /aws/lambda/processapp-ingester-dev --since 30m
+
+# Check DynamoDB item count
+aws dynamodb scan --table-name Dev-ExternalData --select COUNT
+
+# Get specific item from DynamoDB
+aws dynamodb get-item \
+  --table-name Dev-ExternalData \
+  --key '{"partitionKey":{"S":"YOUR_KEY"},"sortKey":{"S":"YOUR_SORT"}}'
+```
+
+### Configuration Files Location
+
+```
+infrastructure/
+├── config/
+│   ├── environments.ts     # Change: Lambda memory, timeout, batch size
+│   └── security.config.ts  # Change: IAM permissions
+├── lambdas/
+│   ├── ingester/index.py   # Ingestion logic
+│   └── consumer/index.py   # API query logic
+└── scripts/
+    ├── ingest.sh           # Ingestion helper
+    └── query.sh            # Query helper
+```
+
+### Important URLs and ARNs
+
+| Resource | Value |
+|----------|-------|
+| **API Gateway URL** | https://gvhyyvhmhj.execute-api.us-east-1.amazonaws.com/dev/ |
+| **DynamoDB Table** | Dev-ExternalData |
+| **Ingester Lambda** | processapp-ingester-dev |
+| **Consumer Lambda** | processapp-consumer-dev |
+| **S3 Bucket** | dev-answering-procesapp-info |
+| **Region** | us-east-1 |
+
+### Authorized Users
+
+Only these users can invoke the ingester Lambda:
+1. **qohat.prettel** - arn:aws:iam::708819485463:user/qohat.prettel
+2. **david.jimenez** - arn:aws:iam::708819485463:user/david.jimenez
+3. **soportejoven@answering.com.co** - arn:aws:iam::708819485463:user/soportejoven@answering.com.co
+
 ## License
 
 MIT
 
+---
 
 ## Resources Created 
 

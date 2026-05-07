@@ -82,20 +82,6 @@ export class PrereqsStack extends cdk.Stack {
       timeToLiveAttribute: 'expirationTime',
     });
 
-    // Add GSI for querying by timestamp
-    this.table.addGlobalSecondaryIndex({
-      indexName: 'timestamp-index',
-      partitionKey: {
-        name: 'status',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'createdAt',
-        type: dynamodb.AttributeType.STRING,
-      },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
-
     // IAM Role for Ingester Lambda
     this.ingesterRole = new iam.Role(this, 'IngesterLambdaRole', {
       roleName: `processapp-ingester-role-${config.stage}`,

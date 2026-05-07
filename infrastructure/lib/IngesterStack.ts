@@ -54,6 +54,18 @@ export class IngesterStack extends cdk.Stack {
       tracing: lambda.Tracing.ACTIVE,
     });
 
+    // Grant invoke permissions to specific IAM users using their ARNs
+    const allowedUserArns = [
+      'arn:aws:iam::708819485463:user/qohat.prettel',
+      'arn:aws:iam::708819485463:user/david.jimenez',
+      'arn:aws:iam::708819485463:user/soportejoven@answering.com.co',
+    ];
+
+    allowedUserArns.forEach((userArn, index) => {
+      const user = iam.User.fromUserArn(this, `AllowedUser${index}`, userArn);
+      this.ingesterFunction.grantInvoke(user);
+    });
+
     // Apply cost allocation tags
     const tags = getCostAllocationTags(config.stage);
     Object.entries(tags).forEach(([key, value]) => {
