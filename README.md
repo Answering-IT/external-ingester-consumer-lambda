@@ -241,14 +241,39 @@ cat response.json | jq .
 ### Understanding partitionKey and sortKey
 
 **Important Notes:**
-- `partitionKey` refers to the **column name** in the CSV (e.g., "doc", "documento")
+- `partitionKey` refers to the **column name** in the CSV/TXT (e.g., "doc", "documento", "col0")
 - The **value** in that column becomes the partition key in DynamoDB
 - `sortKey` can be:
   - A **column name** (will use the value from that column)
   - A **fixed value** (same for all records)
   - Omitted (will use row index)
 
-#### Example 1: Column-based keys
+### File Format Support
+
+The ingester **automatically detects** file formats and delimiters. No extra configuration needed!
+
+| Format | Extension | Delimiter | Headers | Auto-Detection |
+|--------|-----------|-----------|---------|----------------|
+| **CSV (Comma)** | `.csv` | Comma (`,`) | Required | ✅ Automatic |
+| **CSV (Semicolon)** | `.csv` | Semicolon (`;`) | Required | ✅ Automatic |
+| **TSV** | `.txt` | Tab (`\t`) | Required | ✅ Automatic |
+| **Pipe-delimited** | `.txt` | Pipe (`\|`) | Required | ✅ Automatic |
+
+**Auto-detected delimiters:**
+- `,` - Comma (standard CSV)
+- `;` - Semicolon (European Excel exports)
+- `\t` - Tab (TSV files)
+- `|` - Pipe (database exports)
+
+**How it works:**
+1. Lambda reads the first line of the file
+2. Counts occurrences of each delimiter
+3. Uses the delimiter with the highest count
+4. Automatically parses the file with detected settings
+
+**Important:** All files must have a header row with column names. The `partitionKey` parameter must match one of these column names.
+
+#### Example 1: CSV File (Comma-separated)
 
 CSV file `fedecafetero.csv`:
 ```csv
@@ -270,6 +295,27 @@ doc,name,value
 Result in DynamoDB:
 - Record 1: `partitionKey="12345"`, `sortKey="fedecafetero"`, `data_doc="12345"`, `data_name="John Doe"`, `data_value="100"`
 - Record 2: `partitionKey="67890"`, `sortKey="fedecafetero"`, `data_doc="67890"`, `data_name="Jane Smith"`, `data_value="200"`
+
+#### Example 1b: CSV File (Semicolon-separated)
+
+CSV file `data-semicolon.csv`:
+```csv
+doc;name;value
+12345;John Doe;100
+67890;Jane Smith;200
+```
+
+**Linux/macOS:**
+```bash
+./scripts/ingest.sh dev data-semicolon.csv "doc" "semicolon-data"
+```
+
+**Windows:**
+```powershell
+.\scripts\ingest.ps1 -Stage dev -File data-semicolon.csv -PartitionKey "doc" -SortKey "semicolon-data"
+```
+
+**Note**: The delimiter is automatically detected! No need to specify it.
 
 #### Example 2: Multiple files, same partition column
 
@@ -297,7 +343,49 @@ curl https://API_URL/external/12345/fedecafetero
 curl https://API_URL/external/12345/fedeaarroz
 ```
 
-#### Example 3: Using row index as sortKey
+#### Example 3: TXT File (Tab-separated)
+
+TXT file `data.txt`:
+```
+doc	name	city	value
+12345	John Doe	Bogota	100
+67890	Jane Smith	Medellin	200
+```
+
+**Linux/macOS:**
+```bash
+./scripts/ingest.sh dev data.txt "doc" "tab-data"
+```
+
+**Windows:**
+```powershell
+.\scripts\ingest.ps1 -Stage dev -File data.txt -PartitionKey "doc" -SortKey "tab-data"
+```
+
+**Note**: Tab delimiter is automatically detected!
+
+#### Example 4: TXT File (Pipe-separated)
+
+TXT file `data.txt`:
+```
+doc|name|city|value
+12345|John Doe|Bogota|100
+67890|Jane Smith|Medellin|200
+```
+
+**Linux/macOS:**
+```bash
+./scripts/ingest.sh dev data.txt "doc" "pipe-data"
+```
+
+**Windows:**
+```powershell
+.\scripts\ingest.ps1 -Stage dev -File data.txt -PartitionKey "doc" -SortKey "pipe-data"
+```
+
+**Note**: Pipe delimiter is automatically detected!
+
+#### Example 5: Using row index as sortKey
 
 **Linux/macOS:**
 ```bash
