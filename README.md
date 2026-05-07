@@ -17,14 +17,118 @@ AWS CDK infrastructure for streaming CSV/TXT file ingestion from S3 to DynamoDB 
 - **Error Handling**: Creates .failed.txt CSV files with error_reason column
 - **Audit Trail**: Renames processed files with .ingested suffix
 - **Scalable**: DynamoDB pay-per-request, Lambda auto-scaling
+- **Cross-Platform**: Full support for Linux, macOS, and Windows with native scripts
 
-## Prerequisites
+## System Requirements
 
-- Node.js 18+ and npm
-- AWS CLI v2
-- AWS CDK CLI (`npm install -g aws-cdk`)
-- AWS profile configured (`ans-super`)
-- S3 bucket: `dev-answering-procesapp-info` (must exist)
+### Required Software
+
+| Software | Version | Purpose | Download Link |
+|----------|---------|---------|---------------|
+| **Node.js** | 18+ | CDK infrastructure deployment | https://nodejs.org/en/download/ |
+| **npm** | 9+ | Package management (included with Node.js) | - |
+| **AWS CLI** | v2 | AWS resource management | https://aws.amazon.com/cli/ |
+| **Git** | 2.0+ | Version control | https://git-scm.com/downloads |
+| **AWS CDK** | 2.118+ | Infrastructure as Code | `npm install -g aws-cdk` |
+
+### Optional Tools
+
+| Software | Purpose | Download Link |
+|----------|---------|---------------|
+| **Python** | 3.8+ | Local Lambda testing | https://www.python.org/downloads/ |
+| **jq** | JSON parsing in CLI | https://jqlang.github.io/jq/download/ |
+| **PowerShell** | Windows script execution | Pre-installed on Windows 10+ |
+
+### AWS Account Prerequisites
+
+- AWS Account ID: `708819485463`
+- AWS profile configured with credentials
+- IAM user with appropriate permissions (for authorized users)
+- Existing S3 bucket: `dev-answering-procesapp-info`
+
+### Verify Installation
+
+Run these commands to verify your setup:
+
+```bash
+# Check Node.js version
+node --version  # Should be v18.0.0 or higher
+
+# Check npm version
+npm --version   # Should be 9.0.0 or higher
+
+# Check AWS CLI version
+aws --version   # Should be aws-cli/2.x.x
+
+# Check CDK version
+cdk --version   # Should be 2.118.0 or higher
+
+# Check AWS credentials
+aws sts get-caller-identity  # Should show your AWS account info
+```
+
+### Platform-Specific Setup
+
+#### Linux/macOS
+
+```bash
+# Install Node.js via package manager
+# macOS (using Homebrew)
+brew install node
+
+# Ubuntu/Debian
+sudo apt update && sudo apt install nodejs npm
+
+# Install AWS CLI v2
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+# Install CDK
+npm install -g aws-cdk
+
+# Install jq (optional)
+brew install jq  # macOS
+sudo apt install jq  # Ubuntu/Debian
+```
+
+#### Windows
+
+```powershell
+# Install via Chocolatey (recommended)
+choco install nodejs -y
+choco install awscli -y
+choco install git -y
+
+# Or download installers manually:
+# Node.js: https://nodejs.org/en/download/
+# AWS CLI: https://awscli.amazonaws.com/AWSCLIV2.msi
+# Git: https://git-scm.com/download/win
+
+# Install CDK
+npm install -g aws-cdk
+
+# Verify PowerShell version (should be 5.1+)
+$PSVersionTable.PSVersion
+```
+
+### AWS Profile Configuration
+
+```bash
+# Configure AWS profile (all platforms)
+aws configure --profile ans-super
+# AWS Access Key ID: [Enter your access key]
+# AWS Secret Access Key: [Enter your secret key]
+# Default region name: us-east-1
+# Default output format: json
+
+# Verify profile works
+aws sts get-caller-identity --profile ans-super
+
+# Set default profile (optional)
+export AWS_PROFILE=ans-super  # Linux/macOS
+$env:AWS_PROFILE="ans-super"  # Windows PowerShell
+```
 
 ## Installation
 
@@ -73,8 +177,15 @@ These users can run the ingestion process without needing admin access.
 
 ## Usage
 
+> **Platform Note**: This documentation provides commands for both **Linux/macOS** (Bash) and **Windows** (PowerShell). 
+> - Linux/macOS users: Use `.sh` scripts with `./scripts/script.sh` syntax
+> - Windows users: Use `.ps1` scripts with `.\scripts\script.ps1` syntax
+> 
+> All AWS CLI commands work identically on both platforms.
+
 ### 1. Upload CSV to S3
 
+**All Platforms:**
 ```bash
 # With your AWS profile
 aws s3 cp your-file.csv s3://dev-answering-procesapp-info/ --profile YOUR_PROFILE
@@ -83,13 +194,29 @@ aws s3 cp your-file.csv s3://dev-answering-procesapp-info/ --profile YOUR_PROFIL
 aws s3 cp your-file.csv s3://dev-answering-procesapp-info/
 ```
 
+**Windows PowerShell Alternative:**
+```powershell
+# Upload with PowerShell
+aws s3 cp your-file.csv s3://dev-answering-procesapp-info/
+
+# Or specify profile
+aws s3 cp your-file.csv s3://dev-answering-procesapp-info/ --profile YOUR_PROFILE
+```
+
 ### 2. Ingest File
 
 #### Option A: Using Helper Script (Recommended)
 
+**Linux/macOS:**
 ```bash
 # Format: ./scripts/ingest.sh <stage> <file> <partitionKey> [sortKey]
 ./scripts/ingest.sh dev fedecafetero.csv "doc" "fedecafetero"
+```
+
+**Windows (PowerShell):**
+```powershell
+# Format: .\scripts\ingest.ps1 -Stage <stage> -File <file> -PartitionKey <key> -SortKey <value>
+.\scripts\ingest.ps1 -Stage dev -File fedecafetero.csv -PartitionKey "doc" -SortKey "fedecafetero"
 ```
 
 The script automatically:
@@ -130,9 +257,14 @@ doc,name,value
 67890,Jane Smith,200
 ```
 
-Command:
+**Linux/macOS:**
 ```bash
 ./scripts/ingest.sh dev fedecafetero.csv "doc" "fedecafetero"
+```
+
+**Windows:**
+```powershell
+.\scripts\ingest.ps1 -Stage dev -File fedecafetero.csv -PartitionKey "doc" -SortKey "fedecafetero"
 ```
 
 Result in DynamoDB:
@@ -141,12 +273,22 @@ Result in DynamoDB:
 
 #### Example 2: Multiple files, same partition column
 
+**Linux/macOS:**
 ```bash
 # File 1: fedecafetero.csv
 ./scripts/ingest.sh dev fedecafetero.csv "doc" "fedecafetero"
 
 # File 2: fedeaarroz.csv (same partition key column)
 ./scripts/ingest.sh dev fedeaarroz.csv "doc" "fedeaarroz"
+```
+
+**Windows:**
+```powershell
+# File 1: fedecafetero.csv
+.\scripts\ingest.ps1 -Stage dev -File fedecafetero.csv -PartitionKey "doc" -SortKey "fedecafetero"
+
+# File 2: fedeaarroz.csv (same partition key column)
+.\scripts\ingest.ps1 -Stage dev -File fedeaarroz.csv -PartitionKey "doc" -SortKey "fedeaarroz"
 ```
 
 Now you can query by partition key and different sort keys:
@@ -157,9 +299,16 @@ curl https://API_URL/external/12345/fedeaarroz
 
 #### Example 3: Using row index as sortKey
 
+**Linux/macOS:**
 ```bash
 # Omit sortKey parameter to use row numbers
 ./scripts/ingest.sh dev data.csv "documento"
+```
+
+**Windows:**
+```powershell
+# Omit -SortKey parameter to use row numbers
+.\scripts\ingest.ps1 -Stage dev -File data.csv -PartitionKey "documento"
 ```
 
 Result:
@@ -168,12 +317,25 @@ Result:
 
 ### 3. Query via API
 
+**Linux/macOS:**
 ```bash
 # Using helper script
 ./scripts/query.sh dev "12345" "fedecafetero"
 
 # Or directly with curl
 curl -X GET "https://API_ID.execute-api.us-east-1.amazonaws.com/dev/external/12345/fedecafetero"
+```
+
+**Windows:**
+```powershell
+# Using helper script
+.\scripts\query.ps1 -Stage dev -PartitionKey "12345" -SortKey "fedecafetero"
+
+# Or directly with Invoke-RestMethod
+Invoke-RestMethod -Uri "https://API_ID.execute-api.us-east-1.amazonaws.com/dev/external/12345/fedecafetero" -Method Get
+
+# Or with curl (if installed)
+curl.exe -X GET "https://API_ID.execute-api.us-east-1.amazonaws.com/dev/external/12345/fedecafetero"
 ```
 
 ### 4. Monitor Processing
@@ -582,14 +744,17 @@ infrastructure/
 │       ├── index.py        # API consumer
 │       └── requirements.txt
 └── scripts/
-    ├── ingest.sh           # Helper script for ingestion
-    └── query.sh            # Helper script for API queries
+    ├── ingest.sh           # Helper script for ingestion (Bash)
+    ├── ingest.ps1          # Helper script for ingestion (PowerShell)
+    ├── query.sh            # Helper script for API queries (Bash)
+    └── query.ps1           # Helper script for API queries (PowerShell)
 ```
 
 ## Quick Reference
 
 ### Ingestion Command Templates
 
+**Linux/macOS:**
 ```bash
 # Standard ingestion
 ./scripts/ingest.sh dev <FILE.csv> "<PARTITION_KEY_COLUMN>" "<SORT_KEY_VALUE>"
@@ -605,14 +770,43 @@ aws lambda invoke \
   response.json
 ```
 
+**Windows:**
+```powershell
+# Standard ingestion
+.\scripts\ingest.ps1 -Stage dev -File <FILE.csv> -PartitionKey "<PARTITION_KEY_COLUMN>" -SortKey "<SORT_KEY_VALUE>"
+
+# Using row index as sort key
+.\scripts\ingest.ps1 -Stage dev -File <FILE.csv> -PartitionKey "<PARTITION_KEY_COLUMN>"
+
+# Direct AWS CLI (if you prefer)
+aws lambda invoke `
+  --function-name processapp-ingester-dev `
+  --payload '{\"config\":[{\"table\":\"Dev-ExternalData\",\"partitionKey\":\"COLUMN_NAME\",\"sortKey\":\"FIXED_VALUE\",\"file\":\"FILE.csv\",\"ignore\":false}]}' `
+  --cli-binary-format raw-in-base64-out `
+  response.json
+```
+
 ### Query Command Templates
 
+**Linux/macOS:**
 ```bash
 # Using helper script
 ./scripts/query.sh dev "<PARTITION_KEY>" "<SORT_KEY>"
 
 # Direct curl
 curl -X GET "https://gvhyyvhmhj.execute-api.us-east-1.amazonaws.com/dev/external/<PARTITION_KEY>/<SORT_KEY>"
+```
+
+**Windows:**
+```powershell
+# Using helper script
+.\scripts\query.ps1 -Stage dev -PartitionKey "<PARTITION_KEY>" -SortKey "<SORT_KEY>"
+
+# Direct Invoke-RestMethod
+Invoke-RestMethod -Uri "https://gvhyyvhmhj.execute-api.us-east-1.amazonaws.com/dev/external/<PARTITION_KEY>/<SORT_KEY>" -Method Get
+
+# Or with curl.exe (if installed)
+curl.exe -X GET "https://gvhyyvhmhj.execute-api.us-east-1.amazonaws.com/dev/external/<PARTITION_KEY>/<SORT_KEY>"
 ```
 
 ### Useful AWS Commands
