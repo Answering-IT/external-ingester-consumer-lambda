@@ -73,7 +73,7 @@ jobs:
 
       - name: CDK Synth
         working-directory: infrastructure
-        run: npm run synth
+        run: npm run cdk synth
 
       - name: Configure AWS credentials for CDK Diff
         if: github.event_name == 'pull_request'

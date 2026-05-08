@@ -8,10 +8,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "cdk": "cdk",
-    "synth": "cdk synth",
-    "deploy": "cdk deploy --all --profile ans-super --require-approval never",
-    "destroy": "cdk destroy --all --profile ans-super"
+    "cdk": "cdk"
   },
   "keywords": [
     "cdk",
