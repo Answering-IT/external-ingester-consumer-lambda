@@ -8,7 +8,7 @@ import * as kms from 'aws-cdk-lib/aws-kms';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
-import { EnvironmentConfig, getTableName, getCostAllocationTags } from '../config/environments';
+import { EnvironmentConfig, getCostAllocationTags } from '../config/environments';
 import {
   getIngesterLambdaPolicy,
   getConsumerLambdaPolicy,
@@ -36,7 +36,6 @@ export class PrereqsStack extends cdk.Stack {
     super(scope, id, props);
 
     const { config } = props;
-    const tableName = getTableName(config.stage);
 
     // KMS Key for encryption
     this.kmsKey = new kms.Key(this, 'DataEncryptionKey', {
@@ -69,7 +68,7 @@ export class PrereqsStack extends cdk.Stack {
 
     // DynamoDB Table with CapitalCase naming (e.g., dev-ExternalData)
     this.table = new dynamodb.Table(this, 'ExternalDataTable', {
-      tableName: tableName,
+      tableName: `${config.stage}-ExternalData`,
       partitionKey: {
         name: 'partitionKey',
         type: dynamodb.AttributeType.STRING,

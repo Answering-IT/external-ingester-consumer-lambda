@@ -83,15 +83,6 @@ export const DevConfig: EnvironmentConfig = {
 };
 
 /**
- * Get table name with stage prefix in CapitalCase
- * Example: dev -> dev-ExternalData
- */
-export function getTableName(stage: string): string {
-  const capitalizedStage = stage.charAt(0).toUpperCase() + stage.slice(1);
-  return `${capitalizedStage}-ExternalData`;
-}
-
-/**
  * Get Lambda function name
  */
 export function getLambdaFunctionName(stage: string, functionType: 'ingester' | 'consumer'): string {
