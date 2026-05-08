@@ -106,7 +106,7 @@ jobs:
 
       - name: CDK Synth
         working-directory: infrastructure
-        run: npm run synth
+        run: npm run cdk synth
 
       - name: CDK Deploy
         working-directory: infrastructure
