@@ -75,7 +75,8 @@ jobs:
         run: npm run synth
 
       - name: Configure AWS credentials for CDK Diff
-        if: github.event_name == 'pull_request' && secrets.AWS_ACCESS_KEY_ID != ''
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -83,7 +84,7 @@ jobs:
           aws-region: us-east-1
 
       - name: CDK Diff
-        if: github.event_name == 'pull_request' && secrets.AWS_ACCESS_KEY_ID != ''
+        if: github.event_name == 'pull_request'
         id: cdk-diff
         working-directory: infrastructure
         continue-on-error: true
@@ -94,7 +95,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Comment PR with CDK Diff
-        if: github.event_name == 'pull_request' && secrets.AWS_ACCESS_KEY_ID != '' && steps.cdk-diff.outputs.diff != ''
+        if: github.event_name == 'pull_request' && steps.cdk-diff.outcome == 'success'
         uses: actions/github-script@v7
         with:
           script: |
