@@ -191,9 +191,8 @@ def stream_process_file(config: Dict[str, Any], bucket: str) -> Dict[str, Any]:
         if partition_key_name not in fieldnames:
             raise ValueError(f'Partition key column "{partition_key_name}" not found. Available columns: {fieldnames}')
 
-        # Validate sort key exists if specified
-        if sort_key_name and sort_key_name not in fieldnames:
-            raise ValueError(f'Sort key column "{sort_key_name}" not found. Available columns: {fieldnames}')
+        # Determine if sortKey is a column name or a fixed value
+        sort_key_is_column = sort_key_name and sort_key_name in fieldnames
 
         # Accumulators
         batch = []
@@ -211,7 +210,12 @@ def stream_process_file(config: Dict[str, Any], bucket: str) -> Dict[str, Any]:
                 partition_key = row.get(partition_key_name, '').strip()
 
                 if sort_key_name:
-                    sort_key = row.get(sort_key_name, '').strip()
+                    if sort_key_is_column:
+                        # sortKey is a column name, use value from that column
+                        sort_key = row.get(sort_key_name, '').strip()
+                    else:
+                        # sortKey is a fixed value, use it as-is for all records
+                        sort_key = sort_key_name
                 else:
                     # Use row index as sort key if not specified
                     sort_key = str(row_index)

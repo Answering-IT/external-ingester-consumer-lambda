@@ -493,13 +493,13 @@ class TestIngesterEdgeCases(BaseLambdaTest):
         self.assertIn("not found", body["results"][0]["error"].lower())
 
     def test_invalid_sort_key_column(self):
-        """Should return error when sortKey column doesn't exist in file."""
+        """Should use sortKey as fixed value when it doesn't match any column."""
         event = {
             "config": [
                 {
                     "table": DYNAMODB_TABLE,
                     "partitionKey": "doc",
-                    "sortKey": "columna_inexistente",
+                    "sortKey": "fedearroz",
                     "file": "federacionArroz.txt",
                     "ignore": False,
                 }
@@ -510,8 +510,15 @@ class TestIngesterEdgeCases(BaseLambdaTest):
 
         self.assertEqual(response["statusCode"], 200)
         body = json.loads(response["body"])
-        self.assertEqual(body["results"][0]["status"], "error")
-        self.assertIn("not found", body["results"][0]["error"].lower())
+        self.assertEqual(body["results"][0]["status"], "completed")
+        self.assertEqual(body["results"][0]["success_count"], 2)
+
+        # All records should have the fixed sortKey value
+        table = self.dynamodb.Table(DYNAMODB_TABLE)
+        item1 = table.get_item(Key={"partitionKey": "11023345", "sortKey": "fedearroz"})
+        self.assertIn("Item", item1)
+        item2 = table.get_item(Key={"partitionKey": "11023341", "sortKey": "fedearroz"})
+        self.assertIn("Item", item2)
 
     def test_already_ingested_file_skipped(self):
         """Should skip files that already have .ingested suffix."""
