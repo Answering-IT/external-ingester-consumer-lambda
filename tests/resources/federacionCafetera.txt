@@ -1,0 +1,3 @@
+documento,fecha,nombre,edad
+11023345,2026/10/03,claude,2
+11023341,2026/11/03,opus,3
