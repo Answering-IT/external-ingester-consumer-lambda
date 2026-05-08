@@ -42,10 +42,14 @@ jobs:
       - name: Run consumer tests
         run: |
           python -m unittest tests.consumer-lambda-suite -v
+        env:
+          AWS_DEFAULT_REGION: us-east-1
 
       - name: Run ingester tests
         run: |
           python -m unittest tests.ingester-lambda-suite -v
+        env:
+          AWS_DEFAULT_REGION: us-east-1
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4

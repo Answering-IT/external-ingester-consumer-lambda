@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'infrastructure
 # Constants
 # ============================================================
 
-DYNAMODB_TABLE = "Dev-ExternalData"
+DYNAMODB_TABLE = "dev-ExternalData"
 STAGE = "dev"
 
 ENV_VARS = {

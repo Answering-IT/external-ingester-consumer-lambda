@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     This script simplifies invoking the ingester Lambda by:
-    - Automatically capitalizing the stage name for the table (dev → Dev-ExternalData)
+    - Automatically capitalizing the stage name for the table (dev → dev-ExternalData)
     - Formatting the payload correctly
     - Using your default AWS credentials (from AWS_PROFILE or default profile)
     - Showing CloudWatch logs command for monitoring
@@ -77,7 +77,7 @@ function Write-Error {
     Write-Host $Message -ForegroundColor Red
 }
 
-# Capitalize first letter of stage for table name (dev → Dev-ExternalData)
+# Capitalize first letter of stage for table name (dev → dev-ExternalData)
 $TableName = $Stage.Substring(0,1).ToUpper() + $Stage.Substring(1) + "-ExternalData"
 $FunctionName = "processapp-ingester-$Stage"
 

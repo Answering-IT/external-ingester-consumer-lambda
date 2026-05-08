@@ -106,12 +106,12 @@ Both suites use base test classes that handle mocking setup and teardown:
 
 **`BaseLambdaTest`** (Ingester)
 - Sets up mock S3 bucket with test files
-- Creates mock DynamoDB table (Dev-ExternalData)
+- Creates mock DynamoDB table (dev-ExternalData)
 - Patches S3 client methods for seekable streams
 - Tracks file operations in memory
 
 **`BaseConsumerTest`** (Consumer)
-- Creates mock DynamoDB table (Dev-ExternalData)
+- Creates mock DynamoDB table (dev-ExternalData)
 - Provides helpers for creating test records
 - Generates API Gateway event payloads
 
@@ -223,7 +223,7 @@ Both test suites mock these environment variables:
 **Ingester:**
 ```python
 S3_BUCKET = "dev-answering-procesapp-info"
-DYNAMODB_TABLE = "Dev-ExternalData"
+DYNAMODB_TABLE = "dev-ExternalData"
 STAGE = "dev"
 KMS_KEY_ID = "test-kms-key-id"
 BATCH_SIZE = "25"
@@ -232,7 +232,7 @@ MAX_RETRIES = "3"
 
 **Consumer:**
 ```python
-DYNAMODB_TABLE = "Dev-ExternalData"
+DYNAMODB_TABLE = "dev-ExternalData"
 STAGE = "dev"
 ```
 

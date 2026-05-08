@@ -109,7 +109,7 @@ aws iam add-user-to-group \
 Once permissions are granted, users can access the table:
 
 1. Go to **DynamoDB Console** → **Tables**
-2. Select the table: `Dev-ExternalData`
+2. Select the table: `dev-ExternalData`
 3. Click **Explore table items** to view data
 4. Use **Scan** or **Query** to search for specific items
 
@@ -132,7 +132,7 @@ Users with write permissions can also:
 
 ## Table Structure
 
-**Table Name**: `Dev-ExternalData`
+**Table Name**: `dev-ExternalData`
 
 **Primary Key**:
 - **Partition Key**: `partitionKey` (String)

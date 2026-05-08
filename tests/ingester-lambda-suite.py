@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'infrastructure
 # ============================================================
 
 S3_BUCKET = "dev-answering-procesapp-info"
-DYNAMODB_TABLE = "Dev-ExternalData"
+DYNAMODB_TABLE = "dev-ExternalData"
 STAGE = "dev"
 
 ENV_VARS = {
