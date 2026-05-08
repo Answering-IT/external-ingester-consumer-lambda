@@ -11,10 +11,36 @@ import { PrereqsStack } from '../lib/PrereqsStack';
 import { IngesterStack } from '../lib/IngesterStack';
 import { ConsumerStack } from '../lib/ConsumerStack';
 import { DevConfig } from '../config/environments';
+import { StagingConfig } from '../config/staging';
+import { ProductionConfig } from '../config/production';
 
 const app = new cdk.App();
 
-const config = DevConfig;
+// Get stage and region from CDK context
+const stage = app.node.tryGetContext('stage') || 'dev';
+const region = app.node.tryGetContext('region');
+
+// Select configuration based on stage
+let config;
+switch (stage) {
+  case 'stg':
+  case 'staging':
+    config = StagingConfig;
+    break;
+  case 'prod':
+  case 'production':
+    config = ProductionConfig;
+    break;
+  case 'dev':
+  case 'development':
+  default:
+    config = DevConfig;
+}
+
+// Override region if provided in context
+if (region) {
+  config = { ...config, region };
+}
 
 // Environment configuration
 const env = {
