@@ -221,7 +221,7 @@ aws s3 cp your-file.csv s3://dev-answering-procesapp-info/ --profile YOUR_PROFIL
 
 The script automatically:
 - Uses your default AWS credentials
-- Capitalizes the stage name for the table (dev → Dev-ExternalData)
+- Capitalizes the stage name for the table (dev → dev-ExternalData)
 - Formats the payload correctly
 - Shows CloudWatch logs command
 
@@ -230,7 +230,7 @@ The script automatically:
 ```bash
 aws lambda invoke \
   --function-name processapp-ingester-dev \
-  --payload '{"config": [{"table": "Dev-ExternalData", "partitionKey": "doc", "sortKey": "fedecafetero", "file": "fedecafetero.csv", "ignore": false}]}' \
+  --payload '{"config": [{"table": "dev-ExternalData", "partitionKey": "doc", "sortKey": "fedecafetero", "file": "fedecafetero.csv", "ignore": false}]}' \
   --cli-binary-format raw-in-base64-out \
   response.json
 
@@ -745,7 +745,7 @@ iconv -f ISO-8859-1 -t UTF-8 yourfile.csv > yourfile-utf8.csv
 - Verify API Gateway deployment
 
 **404 Not Found:**
-- Verify record exists: `aws dynamodb get-item --table-name Dev-ExternalData --key '{"partitionKey":{"S":"YOUR_KEY"},"sortKey":{"S":"YOUR_SORT"}}'`
+- Verify record exists: `aws dynamodb get-item --table-name dev-ExternalData --key '{"partitionKey":{"S":"YOUR_KEY"},"sortKey":{"S":"YOUR_SORT"}}'`
 - Check partitionKey and sortKey values match exactly
 
 ### Issue: File not renamed to .ingested
@@ -803,7 +803,7 @@ cat response.json | jq '.body | fromjson | .results[0]'
 
 3. **Verify DynamoDB table**:
    ```bash
-   aws dynamodb describe-table --table-name Dev-ExternalData
+   aws dynamodb describe-table --table-name dev-ExternalData
    ```
 
 4. **Test API endpoint**:
@@ -853,7 +853,7 @@ infrastructure/
 # Direct AWS CLI (if you prefer)
 aws lambda invoke \
   --function-name processapp-ingester-dev \
-  --payload '{"config":[{"table":"Dev-ExternalData","partitionKey":"COLUMN_NAME","sortKey":"FIXED_VALUE","file":"FILE.csv","ignore":false}]}' \
+  --payload '{"config":[{"table":"dev-ExternalData","partitionKey":"COLUMN_NAME","sortKey":"FIXED_VALUE","file":"FILE.csv","ignore":false}]}' \
   --cli-binary-format raw-in-base64-out \
   response.json
 ```
@@ -869,7 +869,7 @@ aws lambda invoke \
 # Direct AWS CLI (if you prefer)
 aws lambda invoke `
   --function-name processapp-ingester-dev `
-  --payload '{\"config\":[{\"table\":\"Dev-ExternalData\",\"partitionKey\":\"COLUMN_NAME\",\"sortKey\":\"FIXED_VALUE\",\"file\":\"FILE.csv\",\"ignore\":false}]}' `
+  --payload '{\"config\":[{\"table\":\"dev-ExternalData\",\"partitionKey\":\"COLUMN_NAME\",\"sortKey\":\"FIXED_VALUE\",\"file\":\"FILE.csv\",\"ignore\":false}]}' `
   --cli-binary-format raw-in-base64-out `
   response.json
 ```
@@ -910,11 +910,11 @@ aws s3 cp s3://dev-answering-procesapp-info/file.csv ./
 aws logs tail /aws/lambda/processapp-ingester-dev --since 30m
 
 # Check DynamoDB item count
-aws dynamodb scan --table-name Dev-ExternalData --select COUNT
+aws dynamodb scan --table-name dev-ExternalData --select COUNT
 
 # Get specific item from DynamoDB
 aws dynamodb get-item \
-  --table-name Dev-ExternalData \
+  --table-name dev-ExternalData \
   --key '{"partitionKey":{"S":"YOUR_KEY"},"sortKey":{"S":"YOUR_SORT"}}'
 ```
 
@@ -938,7 +938,7 @@ infrastructure/
 | Resource | Value |
 |----------|-------|
 | **API Gateway URL** | https://gvhyyvhmhj.execute-api.us-east-1.amazonaws.com/dev/ |
-| **DynamoDB Table** | Dev-ExternalData |
+| **DynamoDB Table** | dev-ExternalData |
 | **Ingester Lambda** | processapp-ingester-dev |
 | **Consumer Lambda** | processapp-consumer-dev |
 | **S3 Bucket** | dev-answering-procesapp-info |
@@ -983,7 +983,7 @@ aws iam attach-user-policy \
 1. Go to **IAM Console** → **Users** → Select user
 2. Click **Add permissions** → **Attach policies directly**
 3. Search for `processapp-dynamodb-readonly-dev` or `processapp-dynamodb-readwrite-dev`
-4. User can now access DynamoDB Console → Tables → `Dev-ExternalData`
+4. User can now access DynamoDB Console → Tables → `dev-ExternalData`
 
 **Read-Only Policy**:
 - ✅ View, Scan, Query table items

@@ -90,7 +90,7 @@ Consumption Flow:
 - `infrastructure/lib/PrereqsStack.ts`
 
 **DynamoDB Configuration:**
-- Table: Dev-ExternalData (CapitalCase naming)
+- Table: dev-ExternalData (CapitalCase naming)
 - Partition Key: partitionKey (String)
 - Sort Key: sortKey (String)
 - Billing: PAY_PER_REQUEST
@@ -191,7 +191,7 @@ Consumption Flow:
 
 | Decision | Rationale |
 |----------|-----------|
-| **CapitalCase naming** | Dev-ExternalData follows AWS best practices |
+| **CapitalCase naming** | dev-ExternalData follows AWS best practices |
 | **Streaming file processing** | Supports multi-GB files with constant memory |
 | **Python native packages** | No Lambda layers needed, faster cold starts |
 | **PAY_PER_REQUEST billing** | Cost-effective for variable loads |
@@ -202,8 +202,8 @@ Consumption Flow:
 ## Deployed Resources
 
 ### DynamoDB
-- **Table**: Dev-ExternalData
-- **ARN**: arn:aws:dynamodb:us-east-1:708819485463:table/Dev-ExternalData
+- **Table**: dev-ExternalData
+- **ARN**: arn:aws:dynamodb:us-east-1:708819485463:table/dev-ExternalData
 - **Keys**: partitionKey (String), sortKey (String)
 
 ### Lambda Functions
@@ -306,7 +306,7 @@ curl https://gvhyyvhmhj.execute-api.us-east-1.amazonaws.com/dev/external/CC12345
 cdk destroy --all --profile ans-super
 
 # Clean up DynamoDB
-aws dynamodb delete-table --table-name Dev-ExternalData
+aws dynamodb delete-table --table-name dev-ExternalData
 
 # Restore S3 files
 aws s3 mv s3://bucket/file.csv.ingested s3://bucket/file.csv

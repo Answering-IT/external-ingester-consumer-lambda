@@ -18,7 +18,6 @@ dynamodb = boto3.resource('dynamodb')
 
 # Environment variables
 S3_BUCKET = os.environ['S3_BUCKET']
-DYNAMODB_TABLE = os.environ['DYNAMODB_TABLE']
 STAGE = os.environ['STAGE']
 KMS_KEY_ID = os.environ.get('KMS_KEY_ID', '')
 BATCH_SIZE = int(os.environ.get('BATCH_SIZE', '25'))
@@ -163,13 +162,18 @@ def stream_process_file(config: Dict[str, Any], bucket: str) -> Dict[str, Any]:
         print(f'Streaming file from S3: s3://{bucket}/{file_key}')
         response = s3_client.get_object(Bucket=bucket, Key=file_key)
 
-        # Wrap streaming body in text wrapper for line-by-line reading
-        stream = io.TextIOWrapper(response['Body'], encoding='utf-8', newline='')
+        # Read file content and decode
+        # utf-8-sig automatically strips BOM (Byte Order Mark) from Excel UTF-8 CSV files
+        raw_content = response['Body'].read().decode('utf-8-sig')
+        stream = io.StringIO(raw_content)
 
         # Read first line (header) to detect delimiter
         first_line = stream.readline()
         if not first_line:
             raise ValueError('File is empty')
+
+        # Remove BOM (Byte Order Mark) if still present
+        first_line = first_line.lstrip('\ufeff')
 
         # Detect delimiter from first line
         delimiter = detect_delimiter(first_line)

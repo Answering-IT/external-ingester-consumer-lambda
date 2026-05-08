@@ -25,39 +25,11 @@ from moto import mock_aws
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'infrastructure', 'lambdas', 'ingester'))
 
 # ============================================================
-# Test Data (from tests/resources/)
-# ============================================================
-
-# federacionArroz.txt - comma separated
-# Columns: doc, nombre, edad, estatura, ciudad, celular
-FEDERACION_ARROZ_CSV = (
-    "doc,nombre,edad,estatura,ciudad,celular\n"
-    "11023345,claude,2,175,santa marta,31345789\n"
-    "11023341,opus,3,174,bogota,31345787\n"
-)
-
-# federacionCafetera.csv - semicolon separated
-# Columns: documento, fecha, nombre, edad
-FEDERACION_CAFETERA_SEMICOLON = (
-    "documento;fecha;nombre;edad\n"
-    "11023345;3/10/2026;claude;2\n"
-    "11023341;3/11/2026;opus;3\n"
-)
-
-# federacionCafetera.txt - comma separated
-# Columns: documento, fecha, nombre, edad
-FEDERACION_CAFETERA_COMMA = (
-    "documento,fecha,nombre,edad\n"
-    "11023345,2026/10/03,claude,2\n"
-    "11023341,2026/11/03,opus,3\n"
-)
-
-# ============================================================
 # Constants
 # ============================================================
 
 S3_BUCKET = "dev-answering-procesapp-info"
-DYNAMODB_TABLE = "Dev-ExternalData"
+DYNAMODB_TABLE = "dev-ExternalData"
 STAGE = "dev"
 
 ENV_VARS = {
@@ -69,12 +41,31 @@ ENV_VARS = {
     "MAX_RETRIES": "3",
 }
 
-# Map of file keys to their content for the mock S3
-FILE_CONTENTS = {
-    "federacionArroz.txt": FEDERACION_ARROZ_CSV,
-    "federacionCafetera.csv": FEDERACION_CAFETERA_SEMICOLON,
-    "federacionCafetera.txt": FEDERACION_CAFETERA_COMMA,
-}
+# ============================================================
+# Helper Functions
+# ============================================================
+
+def load_resource_files():
+    """Load test data files from tests/resources/ directory."""
+    resources_dir = os.path.join(os.path.dirname(__file__), 'resources')
+    file_contents = {}
+
+    resource_files = [
+        "federacionArroz.txt",
+        "federacionCafetera.csv",
+        "federacionCafetera.txt"
+    ]
+
+    for filename in resource_files:
+        file_path = os.path.join(resources_dir, filename)
+        # Use utf-8-sig to handle BOM if present
+        with open(file_path, 'r', encoding='utf-8-sig') as f:
+            file_contents[filename] = f.read()
+
+    return file_contents
+
+# Load file contents from resources directory
+FILE_CONTENTS = load_resource_files()
 
 
 # ============================================================

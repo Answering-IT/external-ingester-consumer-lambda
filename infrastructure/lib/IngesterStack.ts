@@ -5,7 +5,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
@@ -14,7 +13,6 @@ import { EnvironmentConfig, getLambdaFunctionName, getCostAllocationTags } from 
 
 export interface IngesterStackProps extends cdk.StackProps {
   config: EnvironmentConfig;
-  table: dynamodb.ITable;
   kmsKey: kms.IKey;
   s3Bucket: s3.IBucket;
   ingesterRole: iam.IRole;
@@ -26,7 +24,7 @@ export class IngesterStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: IngesterStackProps) {
     super(scope, id, props);
 
-    const { config, table, kmsKey, s3Bucket, ingesterRole } = props;
+    const { config, kmsKey, s3Bucket, ingesterRole } = props;
     const functionName = getLambdaFunctionName(config.stage, 'ingester');
 
     // Ingester Lambda Function
@@ -44,7 +42,6 @@ export class IngesterStack extends cdk.Stack {
       reservedConcurrentExecutions: config.lambdas.ingester.reservedConcurrency,
       environment: {
         S3_BUCKET: s3Bucket.bucketName,
-        DYNAMODB_TABLE: table.tableName,
         STAGE: config.stage,
         KMS_KEY_ID: kmsKey.keyId,
         BATCH_SIZE: config.processing.batchSize.toString(),
@@ -86,7 +83,7 @@ export class IngesterStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'InvocationCommand', {
-      value: `aws lambda invoke --function-name ${functionName} --payload '{"config": [{"table": "${table.tableName}", "partitionKey": "YOUR_PARTITION_KEY_COLUMN", "sortKey": "YOUR_SORT_KEY_VALUE", "file": "YOUR_FILE.csv", "ignore": false}]}' --profile ${config.profile} response.json`,
+      value: `aws lambda invoke --function-name ${functionName} --payload '{"config": [{"table": "dev-tableName", "partitionKey": "YOUR_PARTITION_KEY_COLUMN", "sortKey": "YOUR_SORT_KEY_VALUE", "file": "YOUR_FILE.csv", "ignore": false}]}' --profile ${config.profile} response.json`,
       description: 'AWS CLI command to invoke ingester',
     });
   }
