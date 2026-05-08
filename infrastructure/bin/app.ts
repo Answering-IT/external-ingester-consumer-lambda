@@ -33,7 +33,6 @@ const prereqsStack = new PrereqsStack(app, `${config.stage}-PrereqsStack`, {
 // Ingester Stack: Lambda for streaming CSV ingestion
 const ingesterStack = new IngesterStack(app, `${config.stage}-IngesterStack`, {
   config,
-  table: prereqsStack.table,
   kmsKey: prereqsStack.kmsKey,
   s3Bucket: prereqsStack.s3Bucket,
   ingesterRole: prereqsStack.ingesterRole,

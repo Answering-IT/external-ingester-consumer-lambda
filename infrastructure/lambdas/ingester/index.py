@@ -18,7 +18,6 @@ dynamodb = boto3.resource('dynamodb')
 
 # Environment variables
 S3_BUCKET = os.environ['S3_BUCKET']
-DYNAMODB_TABLE = os.environ['DYNAMODB_TABLE']
 STAGE = os.environ['STAGE']
 KMS_KEY_ID = os.environ.get('KMS_KEY_ID', '')
 BATCH_SIZE = int(os.environ.get('BATCH_SIZE', '25'))
