@@ -39,9 +39,13 @@ jobs:
           flake8 infrastructure/lambdas/ --max-line-length=120
           flake8 tests/ --max-line-length=120
 
-      - name: Run tests
+      - name: Run consumer tests
         run: |
-          python -m unittest discover -s tests -p "*-suite.py" -v
+          python -m unittest tests.consumer-lambda-suite -v
+
+      - name: Run ingester tests
+        run: |
+          python -m unittest tests.ingester-lambda-suite -v
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4

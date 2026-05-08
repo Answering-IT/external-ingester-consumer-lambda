@@ -75,7 +75,7 @@ jobs:
       - name: Run tests
         run: |
           pip install moto boto3
-          python -m unittest discover -s tests -p "*-suite.py" -v
+          python -m unittest tests.consumer-lambda-suite -v && python -m unittest tests.ingester-lambda-suite -v
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
