@@ -80,7 +80,9 @@ export class PrereqsStack extends cdk.Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
       encryptionKey: this.kmsKey,
-      pointInTimeRecovery: config.dynamodb.pitrEnabled,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: config.dynamodb.pitrEnabled,
+      },
       removalPolicy: config.stage === 'prod'
         ? cdk.RemovalPolicy.RETAIN
         : cdk.RemovalPolicy.DESTROY,
