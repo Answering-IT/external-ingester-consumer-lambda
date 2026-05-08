@@ -13,6 +13,8 @@ import {
   getIngesterLambdaPolicy,
   getConsumerLambdaPolicy,
   getKMSKeyPolicyStatements,
+  getDynamoDBReadOnlyPolicy,
+  getDynamoDBReadWritePolicy,
 } from '../config/security.config';
 
 export interface PrereqsStackProps extends cdk.StackProps {
@@ -25,6 +27,10 @@ export class PrereqsStack extends cdk.Stack {
   public readonly s3Bucket: s3.IBucket;
   public readonly ingesterRole: iam.Role;
   public readonly consumerRole: iam.Role;
+  public readonly readOnlyGroup: iam.Group;
+  public readonly readWriteGroup: iam.Group;
+  public readonly readOnlyManagedPolicy: iam.ManagedPolicy;
+  public readonly readWriteManagedPolicy: iam.ManagedPolicy;
 
   constructor(scope: Construct, id: string, props: PrereqsStackProps) {
     super(scope, id, props);
@@ -129,6 +135,41 @@ export class PrereqsStack extends cdk.Stack {
       },
     });
 
+    // Create Managed Policies (available to all users in the account)
+    this.readOnlyManagedPolicy = new iam.ManagedPolicy(this, 'DynamoDBReadOnlyManagedPolicy', {
+      managedPolicyName: `processapp-dynamodb-readonly-${config.stage}`,
+      description: `Read-only access to ${this.table.tableName} DynamoDB table`,
+      document: getDynamoDBReadOnlyPolicy(
+        this.table.tableArn,
+        this.kmsKey.keyArn,
+        config.region
+      ),
+    });
+
+    this.readWriteManagedPolicy = new iam.ManagedPolicy(this, 'DynamoDBReadWriteManagedPolicy', {
+      managedPolicyName: `processapp-dynamodb-readwrite-${config.stage}`,
+      description: `Read-write access to ${this.table.tableName} DynamoDB table`,
+      document: getDynamoDBReadWritePolicy(
+        this.table.tableArn,
+        this.kmsKey.keyArn,
+        config.region
+      ),
+    });
+
+    // IAM Group for DynamoDB console read-only access
+    // Users added to this group can view, scan, and query the table from AWS Console
+    this.readOnlyGroup = new iam.Group(this, 'DynamoDBReadOnlyGroup', {
+      groupName: `processapp-dynamodb-readers-${config.stage}`,
+      managedPolicies: [this.readOnlyManagedPolicy],
+    });
+
+    // IAM Group for DynamoDB console read-write access
+    // Users added to this group can read, write, update, and delete items from AWS Console
+    this.readWriteGroup = new iam.Group(this, 'DynamoDBReadWriteGroup', {
+      groupName: `processapp-dynamodb-writers-${config.stage}`,
+      managedPolicies: [this.readWriteManagedPolicy],
+    });
+
     // Apply cost allocation tags
     const tags = getCostAllocationTags(config.stage);
     Object.entries(tags).forEach(([key, value]) => {
@@ -164,6 +205,40 @@ export class PrereqsStack extends cdk.Stack {
       value: this.s3Bucket.bucketName,
       description: 'S3 bucket name',
       exportName: `${config.stage}-ExternalDataBucketName`,
+    });
+
+    new cdk.CfnOutput(this, 'ReadOnlyGroupName', {
+      value: this.readOnlyGroup.groupName,
+      description: 'IAM group for DynamoDB read-only console access',
+      exportName: `${config.stage}-DynamoDBReadOnlyGroupName`,
+    });
+
+    new cdk.CfnOutput(this, 'ReadOnlyGroupArn', {
+      value: this.readOnlyGroup.groupArn,
+      description: 'IAM group ARN for DynamoDB read-only access',
+    });
+
+    new cdk.CfnOutput(this, 'ReadWriteGroupName', {
+      value: this.readWriteGroup.groupName,
+      description: 'IAM group for DynamoDB read-write console access',
+      exportName: `${config.stage}-DynamoDBReadWriteGroupName`,
+    });
+
+    new cdk.CfnOutput(this, 'ReadWriteGroupArn', {
+      value: this.readWriteGroup.groupArn,
+      description: 'IAM group ARN for DynamoDB read-write access',
+    });
+
+    new cdk.CfnOutput(this, 'ReadOnlyPolicyArn', {
+      value: this.readOnlyManagedPolicy.managedPolicyArn,
+      description: 'Managed policy ARN for DynamoDB read-only access',
+      exportName: `${config.stage}-DynamoDBReadOnlyPolicyArn`,
+    });
+
+    new cdk.CfnOutput(this, 'ReadWritePolicyArn', {
+      value: this.readWriteManagedPolicy.managedPolicyArn,
+      description: 'Managed policy ARN for DynamoDB read-write access',
+      exportName: `${config.stage}-DynamoDBReadWritePolicyArn`,
     });
   }
 }

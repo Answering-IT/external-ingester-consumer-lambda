@@ -211,5 +211,136 @@ export function getKMSKeyPolicyStatements(
         },
       },
     }),
+
+    // Allow IAM users to decrypt DynamoDB data from console
+    new iam.PolicyStatement({
+      sid: 'AllowIAMUsersToDecryptDynamoDB',
+      effect: iam.Effect.ALLOW,
+      principals: [new iam.AccountRootPrincipal()],
+      actions: [
+        'kms:Decrypt',
+        'kms:DescribeKey',
+      ],
+      resources: ['*'],
+      conditions: {
+        StringEquals: {
+          'kms:ViaService': `dynamodb.${region}.amazonaws.com`,
+        },
+      },
+    }),
   ];
+}
+
+/**
+ * Get IAM policy document for DynamoDB console read access
+ * This can be attached to users/groups to allow read-only access from console
+ */
+export function getDynamoDBReadOnlyPolicy(
+  dynamodbTableArn: string,
+  kmsKeyArn: string,
+  _region: string
+): iam.PolicyDocument {
+  const statements = [
+    // DynamoDB Permissions: Read, Scan, Query
+    new iam.PolicyStatement({
+      sid: 'ReadDynamoDBTable',
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'dynamodb:DescribeTable',
+        'dynamodb:GetItem',
+        'dynamodb:Query',
+        'dynamodb:Scan',
+        'dynamodb:DescribeTimeToLive',
+        'dynamodb:ListTables',
+      ],
+      resources: [
+        dynamodbTableArn,
+        `${dynamodbTableArn}/index/*`,
+      ],
+    }),
+
+    // KMS Permissions: Decrypt to read encrypted data
+    new iam.PolicyStatement({
+      sid: 'DecryptKMSKey',
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'kms:Decrypt',
+        'kms:DescribeKey',
+      ],
+      resources: [kmsKeyArn],
+    }),
+
+    // Allow listing DynamoDB tables in console
+    new iam.PolicyStatement({
+      sid: 'ListDynamoDBTables',
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'dynamodb:ListTables',
+      ],
+      resources: ['*'],
+    }),
+  ];
+
+  return new iam.PolicyDocument({ statements });
+}
+
+/**
+ * Get IAM policy document for DynamoDB console read-write access
+ * This can be attached to users/groups to allow full access from console
+ */
+export function getDynamoDBReadWritePolicy(
+  dynamodbTableArn: string,
+  kmsKeyArn: string,
+  _region: string
+): iam.PolicyDocument {
+  const statements = [
+    // DynamoDB Permissions: Full CRUD operations
+    new iam.PolicyStatement({
+      sid: 'ReadWriteDynamoDBTable',
+      effect: iam.Effect.ALLOW,
+      actions: [
+        // Read operations
+        'dynamodb:DescribeTable',
+        'dynamodb:GetItem',
+        'dynamodb:Query',
+        'dynamodb:Scan',
+        'dynamodb:DescribeTimeToLive',
+        // Write operations
+        'dynamodb:PutItem',
+        'dynamodb:UpdateItem',
+        'dynamodb:DeleteItem',
+        'dynamodb:BatchWriteItem',
+        'dynamodb:BatchGetItem',
+      ],
+      resources: [
+        dynamodbTableArn,
+        `${dynamodbTableArn}/index/*`,
+      ],
+    }),
+
+    // KMS Permissions: Encrypt and Decrypt
+    new iam.PolicyStatement({
+      sid: 'EncryptDecryptKMSKey',
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'kms:Decrypt',
+        'kms:Encrypt',
+        'kms:GenerateDataKey',
+        'kms:DescribeKey',
+      ],
+      resources: [kmsKeyArn],
+    }),
+
+    // Allow listing DynamoDB tables in console
+    new iam.PolicyStatement({
+      sid: 'ListDynamoDBTables',
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'dynamodb:ListTables',
+      ],
+      resources: ['*'],
+    }),
+  ];
+
+  return new iam.PolicyDocument({ statements });
 }

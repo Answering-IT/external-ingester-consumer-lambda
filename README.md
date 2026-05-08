@@ -951,6 +951,51 @@ Only these users can invoke the ingester Lambda:
 2. **david.jimenez** - arn:aws:iam::708819485463:user/david.jimenez
 3. **soportejoven@answering.com.co** - arn:aws:iam::708819485463:user/soportejoven@answering.com.co
 
+## DynamoDB Console Access
+
+Any user in the account can access the DynamoDB table by attaching one of the managed policies.
+
+**📖 See detailed instructions**: [docs/CONSOLE_ACCESS.md](docs/CONSOLE_ACCESS.md)
+
+**Managed Policies Available**:
+
+| Policy | ARN | Permissions |
+|--------|-----|-------------|
+| `processapp-dynamodb-readonly-dev` | `arn:aws:iam::708819485463:policy/processapp-dynamodb-readonly-dev` | Read-only |
+| `processapp-dynamodb-readwrite-dev` | `arn:aws:iam::708819485463:policy/processapp-dynamodb-readwrite-dev` | Read-Write |
+
+**Quick Start - Attach Policy to User**:
+```bash
+# Read-only access
+aws iam attach-user-policy \
+  --user-name USERNAME \
+  --policy-arn arn:aws:iam::708819485463:policy/processapp-dynamodb-readonly-dev \
+  --profile ans-super
+
+# Read-write access
+aws iam attach-user-policy \
+  --user-name USERNAME \
+  --policy-arn arn:aws:iam::708819485463:policy/processapp-dynamodb-readwrite-dev \
+  --profile ans-super
+```
+
+**Or use IAM Console**:
+1. Go to **IAM Console** → **Users** → Select user
+2. Click **Add permissions** → **Attach policies directly**
+3. Search for `processapp-dynamodb-readonly-dev` or `processapp-dynamodb-readwrite-dev`
+4. User can now access DynamoDB Console → Tables → `Dev-ExternalData`
+
+**Read-Only Policy**:
+- ✅ View, Scan, Query table items
+- ✅ Decrypt encrypted data (via KMS)
+- ❌ No write or delete permissions
+
+**Read-Write Policy**:
+- ✅ All read permissions
+- ✅ Create, Update, Delete items
+- ✅ Batch operations and PartiQL editor
+- ⚠️ Use with caution - can modify/delete data
+
 ## License
 
 MIT
