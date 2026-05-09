@@ -187,7 +187,7 @@ def stream_process_file(config: Dict[str, Any], bucket: str) -> Dict[str, Any]:
         reader = csv.DictReader(stream, fieldnames=fieldnames, delimiter=delimiter)
 
         if not fieldnames:
-            raise ValueError('Could not detect column headers in file')
+            raise ValueError('Could not detect column headers in file...')
 
         print(f'Detected columns: {fieldnames}')
 
