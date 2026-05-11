@@ -15,6 +15,14 @@ on:
         description: 'Fixed sort key value or column name (e.g., tamano-productor-FAIA-CFA)'
         required: true
         type: string
+      table:
+        description: 'DynamoDB table name suffix'
+        required: true
+        type: choice
+        options:
+          - ExternalData
+          - FormAggregations
+        default: 'ExternalData'
       stage:
         description: 'Environment stage'
         required: true
