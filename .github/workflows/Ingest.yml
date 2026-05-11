@@ -1,0 +1,145 @@
+name: Ingest Data
+
+on:
+  workflow_dispatch:
+    inputs:
+      file:
+        description: 'CSV/TXT file name already uploaded to S3 (e.g., productores-FAIA-CFA.csv)'
+        required: true
+        type: string
+      partition_key:
+        description: 'Column name in the CSV to use as partition key (e.g., ID, doc, cedula)'
+        required: true
+        type: string
+      sort_key:
+        description: 'Fixed sort key value or column name (e.g., tamano-productor-FAIA-CFA)'
+        required: true
+        type: string
+      stage:
+        description: 'Environment stage'
+        required: true
+        type: choice
+        options:
+          - dev
+          - stg
+          - prod
+        default: 'dev'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  ingest:
+    name: Ingest ${{ github.event.inputs.file }} (${{ github.event.inputs.stage }})
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.stage == 'prod' && 'production' || github.event.inputs.stage == 'stg' && 'staging' || 'dev' }}
+
+    env:
+      STAGE: ${{ github.event.inputs.stage }}
+      REGION: ${{ github.event.inputs.stage == 'prod' && 'us-east-2' || 'us-east-1' }}
+      TABLE_NAME: ${{ github.event.inputs.stage }}-${{ github.event.inputs.table }}
+      FUNCTION_NAME: processapp-ingester-${{ github.event.inputs.stage }}
+
+    steps:
+      - name: Show ingestion parameters
+        run: |
+          echo "### 📥 Ingestion Parameters" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **File** | ${{ github.event.inputs.file }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Partition Key** | ${{ github.event.inputs.partition_key }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Sort Key** | ${{ github.event.inputs.sort_key }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Stage** | ${{ env.STAGE }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Table** | ${{ env.TABLE_NAME }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Function** | ${{ env.FUNCTION_NAME }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Region** | ${{ env.REGION }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Triggered by** | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::708819485463:role/GitHubActions-Answering-IT-SharedRole
+          aws-region: ${{ env.REGION }}
+
+      - name: Verify file exists in S3
+        run: |
+          BUCKET="${{ env.STAGE }}-answering-procesapp-info"
+          echo "🔍 Checking if file exists in s3://${BUCKET}/${{ github.event.inputs.file }}"
+
+          if aws s3 ls "s3://${BUCKET}/${{ github.event.inputs.file }}" > /dev/null 2>&1; then
+            echo "✅ File found in S3"
+          else
+            echo "❌ ERROR: File '${{ github.event.inputs.file }}' not found in s3://${BUCKET}/"
+            echo ""
+            echo "Available files:"
+            aws s3 ls "s3://${BUCKET}/" --recursive | head -20
+            exit 1
+          fi
+
+      - name: Invoke Ingester Lambda
+        id: invoke
+        run: |
+          PAYLOAD='{"config":[{"table":"${{ env.TABLE_NAME }}","partitionKey":"${{ github.event.inputs.partition_key }}","sortKey":"${{ github.event.inputs.sort_key }}","file":"${{ github.event.inputs.file }}","ignore":false}]}'
+
+          echo "📤 Invoking Lambda: ${{ env.FUNCTION_NAME }}"
+          echo "📦 Payload: ${PAYLOAD}"
+
+          aws lambda invoke \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --payload "${PAYLOAD}" \
+            --cli-binary-format raw-in-base64-out \
+            response.json
+
+          echo "📄 Lambda Response:"
+          cat response.json | jq .
+
+          # Check for function error
+          if jq -e '.FunctionError' response.json > /dev/null 2>&1; then
+            echo "❌ Lambda returned an error"
+            exit 1
+          fi
+
+          # Extract results
+          STATUS_CODE=$(jq -r '.statusCode // empty' response.json)
+          if [ "$STATUS_CODE" = "500" ]; then
+            echo "❌ Lambda returned status 500"
+            jq -r '.body' response.json | jq .
+            exit 1
+          fi
+
+          echo "response<<EOF" >> $GITHUB_OUTPUT
+          cat response.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Ingestion Summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Ingestion Result" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f response.json ]; then
+            BODY=$(jq -r '.body // empty' response.json)
+            if [ -n "$BODY" ]; then
+              SUCCESS=$(echo "$BODY" | jq -r '.results[0].success_count // "N/A"')
+              ERRORS=$(echo "$BODY" | jq -r '.results[0].error_count // "N/A"')
+              STATUS=$(echo "$BODY" | jq -r '.results[0].status // "N/A"')
+
+              echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+              echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+              echo "| **Status** | ${STATUS} |" >> $GITHUB_STEP_SUMMARY
+              echo "| **Records ingested** | ${SUCCESS} |" >> $GITHUB_STEP_SUMMARY
+              echo "| **Errors** | ${ERRORS} |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+              cat response.json | jq . >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "⚠️ No response file found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
