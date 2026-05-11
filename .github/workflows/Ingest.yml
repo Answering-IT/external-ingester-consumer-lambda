@@ -38,7 +38,7 @@ jobs:
     env:
       STAGE: ${{ github.event.inputs.stage }}
       REGION: ${{ github.event.inputs.stage == 'prod' && 'us-east-2' || 'us-east-1' }}
-      TABLE_NAME: ${{ github.event.inputs.stage }}-ExternalData
+      TABLE_NAME: ${{ github.event.inputs.stage }}-${{ github.event.inputs.table }}
       FUNCTION_NAME: processapp-ingester-${{ github.event.inputs.stage }}
 
     steps:
