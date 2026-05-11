@@ -16,9 +16,13 @@ on:
         required: true
         type: string
       table:
-        description: 'DynamoDB table name suffix (e.g., ExternalData, FormAggregations)'
+        description: 'DynamoDB table name suffix'
         required: true
-        type: string
+        type: choice
+        options:
+          - ExternalData
+          - FormAggregations
+        default: 'ExternalData'
       stage:
         description: 'Environment stage'
         required: true
