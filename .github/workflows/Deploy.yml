@@ -69,10 +69,6 @@ jobs:
           role-to-assume: arn:aws:iam::708819485463:role/GitHubActions-Answering-IT-SharedRole
           aws-region: ${{ env.REGION }}
 
-      - name: CDK Synth
-        working-directory: infrastructure
-        run: npm run cdk synth
-
       - name: CDK Deploy
         working-directory: infrastructure
         run: |
