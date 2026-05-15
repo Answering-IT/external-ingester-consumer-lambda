@@ -91,35 +91,20 @@ jobs:
         run: |
           PAYLOAD='{"config":[{"table":"${{ env.TABLE_NAME }}","partitionKey":"${{ github.event.inputs.partition_key }}","sortKey":"${{ github.event.inputs.sort_key }}","file":"${{ github.event.inputs.file }}","ignore":false}]}'
 
-          echo "📤 Invoking Lambda: ${{ env.FUNCTION_NAME }}"
+          echo "📤 Invoking Lambda (async): ${{ env.FUNCTION_NAME }}"
           echo "📦 Payload: ${PAYLOAD}"
 
           aws lambda invoke \
             --function-name ${{ env.FUNCTION_NAME }} \
+            --invocation-type Event \
             --payload "${PAYLOAD}" \
             --cli-binary-format raw-in-base64-out \
             response.json
 
-          echo "📄 Lambda Response:"
-          cat response.json | jq .
+          echo "Lambda invoked successfully"
+          echo "Check CloudWatch logs for results"
 
-          # Check for function error
-          if jq -e '.FunctionError' response.json > /dev/null 2>&1; then
-            echo "❌ Lambda returned an error"
-            exit 1
-          fi
-
-          # Extract results
-          STATUS_CODE=$(jq -r '.statusCode // empty' response.json)
-          if [ "$STATUS_CODE" = "500" ]; then
-            echo "❌ Lambda returned status 500"
-            jq -r '.body' response.json | jq .
-            exit 1
-          fi
-
-          echo "response<<EOF" >> $GITHUB_OUTPUT
-          cat response.json >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          
 
       - name: Ingestion Summary
         if: always()
